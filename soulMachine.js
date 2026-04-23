@@ -1,3 +1,5 @@
+
+
 const config = {
     type: Phaser.AUTO,
     // tamaño del navegador
@@ -382,9 +384,6 @@ function checkIfEnemyCanSeePlayer() {
     
     return true;
 }
-
-// Variable global temporal para almacenar referencias del scene
-
 
 // Función mejorada que incluye verificación de obstáculos
 function checkIfEnemyCanSeePlayerWithObstacles() {
