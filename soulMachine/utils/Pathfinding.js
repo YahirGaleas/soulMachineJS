@@ -1,9 +1,11 @@
-const GRID_SIZE = 10;
+const GRID_SIZE = 10; 
+const ENEMY_RADIUS = 12; 
 
 export function buildNavGrid(walls, cabinets, mapWidth = 800, mapHeight = 600) {
     const cols = Math.ceil(mapWidth / GRID_SIZE);
     const rows = Math.ceil(mapHeight / GRID_SIZE);
-    const buffer = GRID_SIZE * 0.3;
+    
+    const buffer = ENEMY_RADIUS + 2;
     const grid = [];
 
     for (let y = 0; y < rows; y++) {

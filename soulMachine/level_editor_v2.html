@@ -1,0 +1,483 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+#app{display:flex;flex-direction:column;height:620px;background:var(--color-background-tertiary);font-family:var(--font-sans);}
+#toolbar{display:flex;align-items:center;gap:5px;padding:7px 10px;background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);flex-wrap:wrap;}
+.tool-btn{padding:4px 9px;font-size:12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;}
+.tool-btn:hover{background:var(--color-background-secondary);}
+.tool-btn.active{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+.sep{width:0.5px;height:22px;background:var(--color-border-tertiary);margin:0 2px;}
+#main{display:flex;flex:1;overflow:hidden;}
+#sidebar{width:185px;min-width:185px;background:var(--color-background-primary);border-right:0.5px solid var(--color-border-tertiary);display:flex;flex-direction:column;overflow:hidden;}
+#sidebar-tabs{display:flex;border-bottom:0.5px solid var(--color-border-tertiary);}
+.stab{flex:1;padding:6px 0;font-size:11px;text-align:center;cursor:pointer;color:var(--color-text-secondary);border:none;background:transparent;}
+.stab.active{color:var(--color-text-info);border-bottom:2px solid var(--color-border-info);font-weight:500;}
+#sidebar-content{flex:1;overflow-y:auto;padding:8px;}
+.slabel{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;font-weight:500;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);margin-bottom:3px;}
+.ldot{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
+#canvas-wrap{flex:1;overflow:auto;position:relative;}
+canvas{display:block;cursor:crosshair;}
+#statusbar{font-size:11px;color:var(--color-text-tertiary);padding:3px 10px;background:var(--color-background-primary);border-top:0.5px solid var(--color-border-tertiary);}
+#json-panel{display:none;position:absolute;inset:0;background:var(--color-background-primary);z-index:10;flex-direction:column;padding:14px;gap:9px;}
+#json-panel.open{display:flex;}
+textarea#json-out{flex:1;font-family:var(--font-mono);font-size:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px;background:var(--color-background-secondary);color:var(--color-text-primary);resize:none;}
+.enemy-card{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:7px 8px;margin-bottom:6px;cursor:pointer;font-size:12px;}
+.enemy-card.selected{border-color:var(--color-border-info);background:var(--color-background-info);}
+.enemy-card .ec-head{display:flex;justify-content:space-between;align-items:center;}
+.enemy-card .ec-type{font-weight:500;color:var(--color-text-primary);}
+.enemy-card.selected .ec-type{color:var(--color-text-info);}
+.enemy-card .ec-del{font-size:11px;color:var(--color-text-tertiary);border:none;background:transparent;cursor:pointer;padding:2px 5px;border-radius:3px;}
+.enemy-card .ec-del:hover{background:var(--color-background-danger);color:var(--color-text-danger);}
+.enemy-card .ec-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:2px;}
+.no-enemies{font-size:12px;color:var(--color-text-tertiary);text-align:center;margin-top:16px;}
+.small-input{font-size:12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:3px 7px;background:var(--color-background-primary);color:var(--color-text-primary);width:58px;}
+</style>
+
+<div id="app">
+  <div id="toolbar">
+    <span style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);">PINTAR:</span>
+    <button class="tool-btn active" data-tool="wall">Pared</button>
+    <button class="tool-btn" data-tool="cabinet">Armario</button>
+    <div class="sep"></div>
+    <span style="font-size:11px;font-weight:500;color:var(--color-text-tertiary);">COLOCAR:</span>
+    <button class="tool-btn" data-tool="soul">Alma</button>
+    <button class="tool-btn" data-tool="enemy_reaper">+ Reaper</button>
+    <button class="tool-btn" data-tool="enemy_fast">+ Rápido</button>
+    <button class="tool-btn" data-tool="patrol">Ruta (enemigo sel.)</button>
+    <button class="tool-btn" data-tool="player">Spawn jugador</button>
+    <div class="sep"></div>
+    <button class="tool-btn" data-tool="erase">&#x2715; Borrar</button>
+    <div class="sep"></div>
+    <label style="font-size:11px;color:var(--color-text-secondary);">W:</label>
+    <input class="small-input" id="inp-w" type="number" value="800" min="400" max="2000" step="50"/>
+    <label style="font-size:11px;color:var(--color-text-secondary);">H:</label>
+    <input class="small-input" id="inp-h" type="number" value="600" min="300" max="1500" step="50"/>
+    <button class="tool-btn" id="btn-resize">OK</button>
+    <div class="sep"></div>
+    <button class="tool-btn" id="btn-clear">Limpiar</button>
+    <button class="tool-btn" id="btn-grid">Grid ON</button>
+    <button class="tool-btn" id="btn-export" style="font-weight:500;">Exportar JSON</button>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <div id="sidebar-tabs">
+        <button class="stab active" data-tab="enemies">Enemigos</button>
+        <button class="stab" data-tab="legend">Leyenda</button>
+        <button class="stab" data-tab="counts">Info</button>
+      </div>
+      <div id="sidebar-content">
+        <div id="tab-enemies">
+          <div class="slabel">Enemigos en escena</div>
+          <div id="enemy-list"><div class="no-enemies">Sin enemigos aún.<br>Usa "+ Reaper" o "+ Rápido".</div></div>
+          <div class="slabel" style="margin-top:10px;">Ruta del seleccionado</div>
+          <div id="route-info" style="font-size:11px;color:var(--color-text-tertiary);">Selecciona un enemigo para ver su ruta.</div>
+          <button class="tool-btn" id="btn-clear-route" style="margin-top:6px;font-size:11px;width:100%;display:none;">Limpiar ruta</button>
+        </div>
+        <div id="tab-legend" style="display:none;">
+          <div class="slabel">Tiles (arrastrar)</div>
+          <div class="legend-item"><div class="ldot" style="background:#8B4513;"></div>Pared</div>
+          <div class="legend-item"><div class="ldot" style="background:#654321;border:1.5px solid #a0522d;"></div>Armario</div>
+          <div class="slabel">Puntos (click)</div>
+          <div class="legend-item"><div class="ldot" style="background:#00cc44;border-radius:50%;"></div>Alma</div>
+          <div class="legend-item"><div class="ldot" style="background:#ff2222;border-radius:50%;"></div>Reaper</div>
+          <div class="legend-item"><div class="ldot" style="background:#ff8800;border-radius:50%;"></div>Rápido</div>
+          <div class="legend-item"><div class="ldot" style="background:#ffffff;border:1.5px solid #888;border-radius:50%;"></div>Spawn jugador</div>
+          <div class="slabel">Rutas de patrulla</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);line-height:1.5;">Cada enemigo tiene su propia ruta. Seleccioná uno en la pestaña Enemigos y usá la herramienta "Ruta" para añadir puntos.</div>
+        </div>
+        <div id="tab-counts" style="display:none;">
+          <div class="slabel">Conteo</div>
+          <div id="counts" style="font-size:12px;color:var(--color-text-secondary);line-height:2;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="c"></canvas>
+      <div id="json-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:14px;font-weight:500;color:var(--color-text-primary);">JSON del nivel</span>
+          <div style="display:flex;gap:7px;">
+            <button class="tool-btn" id="btn-copy">Copiar</button>
+            <button class="tool-btn" id="btn-download">Descargar .json</button>
+            <button class="tool-btn" id="btn-close-json">Cerrar</button>
+          </div>
+        </div>
+        <textarea id="json-out" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar">Listo</div>
+</div>
+
+<script>
+const TILE = 20;
+let MAP_W = 800, MAP_H = 600;
+let showGrid = true;
+let currentTool = 'wall';
+let painting = false;
+let selectedEnemyId = null;
+let enemyCounter = 0;
+
+const PATROL_COLORS = [
+  '#4af','#f4a','#af4','#fa4','#a4f','#4fa','#ff4','#f44','#44f','#4ff'
+];
+
+const state = {
+  walls: new Set(),
+  cabinets: new Set(),
+  souls: [],
+  enemies: [],
+  playerSpawn: null,
+};
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const sb = document.getElementById('statusbar');
+
+function resizeCanvas() { canvas.width = MAP_W; canvas.height = MAP_H; draw(); }
+function tileKey(tx,ty){ return `${tx},${ty}`; }
+function worldToTile(x,y){ return {tx:Math.floor(x/TILE),ty:Math.floor(y/TILE)}; }
+function tileToWorld(tx,ty){ return {x:tx*TILE+TILE/2,y:ty*TILE+TILE/2}; }
+function snapCenter(x,y){ const t=worldToTile(x,y); return tileToWorld(t.tx,t.ty); }
+function getEnemyColor(e){ return e.type==='reaper'?'#ff2222':'#ff8800'; }
+function getPatrolColor(idx){ return PATROL_COLORS[idx%PATROL_COLORS.length]; }
+
+function getEnemy(id){ return state.enemies.find(e=>e.id===id)||null; }
+function getSelected(){ return getEnemy(selectedEnemyId); }
+
+function draw(){
+  ctx.clearRect(0,0,MAP_W,MAP_H);
+  ctx.fillStyle='#1a1a2e'; ctx.fillRect(0,0,MAP_W,MAP_H);
+
+  if(showGrid){
+    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
+    for(let x=0;x<=MAP_W;x+=TILE){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,MAP_H);ctx.stroke();}
+    for(let y=0;y<=MAP_H;y+=TILE){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(MAP_W,y);ctx.stroke();}
+  }
+
+  state.walls.forEach(k=>{
+    const [tx,ty]=k.split(',').map(Number);
+    ctx.fillStyle='#8B4513';
+    ctx.fillRect(tx*TILE+1,ty*TILE+1,TILE-2,TILE-2);
+  });
+
+  state.cabinets.forEach(k=>{
+    const [tx,ty]=k.split(',').map(Number);
+    ctx.fillStyle='#654321';
+    ctx.fillRect(tx*TILE+1,ty*TILE+1,TILE-2,TILE-2);
+    ctx.strokeStyle='#a0522d'; ctx.lineWidth=1.5;
+    ctx.strokeRect(tx*TILE+2,ty*TILE+2,TILE-4,TILE-4);
+  });
+
+  state.souls.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2);
+    ctx.fillStyle='#00cc44'; ctx.fill();
+    ctx.strokeStyle='#00ff66'; ctx.lineWidth=1; ctx.stroke();
+  });
+
+  // Rutas de patrulla por enemigo
+  state.enemies.forEach((e,idx)=>{
+    const col = getPatrolColor(idx);
+    const pts = e.patrolPoints;
+    if(pts.length>1){
+      ctx.setLineDash([5,4]);
+      ctx.lineWidth=1.5;
+      ctx.strokeStyle=col+'99';
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+      ctx.lineTo(pts[0].x,pts[0].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    pts.forEach((p,pi)=>{
+      const isSelected = e.id===selectedEnemyId;
+      ctx.beginPath(); ctx.arc(p.x,p.y,isSelected?6:5,0,Math.PI*2);
+      ctx.fillStyle=col;
+      ctx.fill();
+      if(isSelected){
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      }
+      ctx.fillStyle='#111';
+      ctx.font=`bold 8px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(pi+1,p.x,p.y);
+    });
+  });
+
+  // Enemigos
+  state.enemies.forEach((e,idx)=>{
+    const col=getEnemyColor(e);
+    const pcol=getPatrolColor(idx);
+    const isSelected=e.id===selectedEnemyId;
+    // Anillo de color de ruta
+    ctx.beginPath(); ctx.arc(e.x,e.y,13,0,Math.PI*2);
+    ctx.strokeStyle=pcol; ctx.lineWidth=isSelected?3:1.5; ctx.stroke();
+    // Cuerpo
+    ctx.beginPath(); ctx.arc(e.x,e.y,10,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    if(isSelected){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();}
+    ctx.fillStyle='#fff';
+    ctx.font='bold 8px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(e.type==='reaper'?'R':'F',e.x,e.y);
+    // Etiqueta con índice
+    ctx.fillStyle=pcol;
+    ctx.font='9px sans-serif';
+    ctx.fillText(`#${idx+1}`,e.x,e.y-17);
+  });
+
+  if(state.playerSpawn){
+    const p=state.playerSpawn;
+    ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2);
+    ctx.fillStyle='#ffffff'; ctx.fill();
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#333';
+    ctx.font='bold 8px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('P',p.x,p.y);
+  }
+
+  updateSidebar();
+}
+
+// ── Interacción ──────────────────────────────────────────────────────────────
+const TILE_TOOLS = new Set(['wall','cabinet','erase']);
+
+function paintTile(x,y){
+  const {tx,ty}=worldToTile(x,y);
+  if(tx<0||ty<0||tx>=MAP_W/TILE||ty>=MAP_H/TILE) return;
+  const k=tileKey(tx,ty);
+  if(currentTool==='wall'){state.cabinets.delete(k);state.walls.add(k);}
+  else if(currentTool==='cabinet'){state.walls.delete(k);state.cabinets.add(k);}
+  else if(currentTool==='erase'){state.walls.delete(k);state.cabinets.delete(k);}
+}
+
+function distBetween(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+const HIT_R = 14;
+
+function erasePoint(wx,wy){
+  // Almas
+  let idx=state.souls.findIndex(s=>distBetween(s,{x:wx,y:wy})<HIT_R);
+  if(idx>=0){state.souls.splice(idx,1);return;}
+  // Spawn
+  if(state.playerSpawn&&distBetween(state.playerSpawn,{x:wx,y:wy})<HIT_R){state.playerSpawn=null;return;}
+  // Puntos de patrulla del enemigo seleccionado primero, luego resto
+  for(const e of state.enemies){
+    const pi=e.patrolPoints.findIndex(p=>distBetween(p,{x:wx,y:wy})<HIT_R);
+    if(pi>=0){e.patrolPoints.splice(pi,1);return;}
+  }
+  // Enemigos
+  const ei=state.enemies.findIndex(e=>distBetween(e,{x:wx,y:wy})<HIT_R+4);
+  if(ei>=0){
+    if(state.enemies[ei].id===selectedEnemyId) selectedEnemyId=null;
+    state.enemies.splice(ei,1);
+    return;
+  }
+}
+
+function placePoint(x,y){
+  const snap=snapCenter(x,y);
+  if(currentTool==='soul'){
+    state.souls.push({x:snap.x,y:snap.y});
+  } else if(currentTool==='patrol'){
+    const sel=getSelected();
+    if(!sel){sb.textContent='⚠ Seleccioná un enemigo antes de añadir puntos de ruta.';return;}
+    sel.patrolPoints.push({x:snap.x,y:snap.y});
+  } else if(currentTool==='enemy_reaper'||currentTool==='enemy_fast'){
+    const type=currentTool==='enemy_reaper'?'reaper':'fast';
+    const newEnemy={id:++enemyCounter,x:snap.x,y:snap.y,type,patrolPoints:[]};
+    state.enemies.push(newEnemy);
+    selectedEnemyId=newEnemy.id;
+  } else if(currentTool==='player'){
+    state.playerSpawn={x:snap.x,y:snap.y};
+  } else if(currentTool==='erase'){
+    erasePoint(x,y);
+    // También borrar tiles en la misma pasada
+    paintTile(x,y);
+  }
+}
+
+canvas.addEventListener('mousedown',e=>{
+  const r=canvas.getBoundingClientRect();
+  const x=e.offsetX*(MAP_W/r.width), y=e.offsetY*(MAP_H/r.height);
+  painting=true;
+  if(currentTool==='erase'){
+    erasePoint(x,y); paintTile(x,y);
+  } else if(TILE_TOOLS.has(currentTool)){
+    paintTile(x,y);
+  } else {
+    // Detectar click en enemigo para seleccionarlo
+    const hit=state.enemies.find(en=>distBetween(en,{x,y})<HIT_R+4);
+    if(hit && currentTool!=='patrol'){selectedEnemyId=hit.id;}
+    else { placePoint(x,y); }
+  }
+  draw();
+});
+
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  const x=Math.round(e.offsetX*(MAP_W/r.width)), y=Math.round(e.offsetY*(MAP_H/r.height));
+  const {tx,ty}=worldToTile(x,y);
+  const sel=getSelected();
+  const selInfo=sel?` | Editando: ${sel.type} #${state.enemies.indexOf(sel)+1} (${sel.patrolPoints.length} pts ruta)`:' | Sin enemigo seleccionado';
+  sb.textContent=`Tile(${tx},${ty}) Mundo(${x},${y}) | Herramienta: ${currentTool}${selInfo}`;
+  if(!painting) return;
+  if(currentTool==='erase'){erasePoint(x,y);paintTile(x,y);draw();}
+  else if(TILE_TOOLS.has(currentTool)){paintTile(x,y);draw();}
+});
+
+canvas.addEventListener('mouseup',()=>{painting=false;});
+canvas.addEventListener('mouseleave',()=>{painting=false;});
+
+// ── Toolbar ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTool=btn.dataset.tool;
+    if(currentTool==='patrol'&&!getSelected()){
+      sb.textContent='⚠ Seleccioná un enemigo primero (click sobre él en el canvas o en la lista).';
+    }
+  });
+});
+
+document.getElementById('btn-grid').addEventListener('click',function(){
+  showGrid=!showGrid; this.textContent=`Grid ${showGrid?'ON':'OFF'}`; draw();
+});
+
+document.getElementById('btn-clear').addEventListener('click',()=>{
+  if(!confirm('¿Limpiar todo?')) return;
+  state.walls.clear(); state.cabinets.clear();
+  state.souls=[]; state.enemies=[]; state.playerSpawn=null;
+  selectedEnemyId=null; enemyCounter=0; draw();
+});
+
+document.getElementById('btn-resize').addEventListener('click',()=>{
+  const w=parseInt(document.getElementById('inp-w').value);
+  const h=parseInt(document.getElementById('inp-h').value);
+  if(w>=400&&h>=300){MAP_W=w;MAP_H=h;resizeCanvas();}
+});
+
+// ── Sidebar tabs ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.stab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.stab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('#sidebar-content>div').forEach(x=>x.style.display='none');
+    document.getElementById('tab-'+t.dataset.tab).style.display='block';
+  });
+});
+
+// ── Enemy list sidebar ───────────────────────────────────────────────────────
+function updateSidebar(){
+  // Enemy list
+  const list=document.getElementById('enemy-list');
+  if(state.enemies.length===0){
+    list.innerHTML='<div class="no-enemies">Sin enemigos aún.<br>Usa "+ Reaper" o "+ Rápido".</div>';
+  } else {
+    list.innerHTML=state.enemies.map((e,idx)=>{
+      const col=getPatrolColor(idx);
+      const isSel=e.id===selectedEnemyId;
+      return `<div class="enemy-card${isSel?' selected':''}" data-id="${e.id}">
+        <div class="ec-head">
+          <span class="ec-type">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col};margin-right:4px;"></span>
+            ${e.type==='reaper'?'Reaper':'Rápido'} #${idx+1}
+          </span>
+          <button class="ec-del" data-del="${e.id}">✕</button>
+        </div>
+        <div class="ec-sub">${e.patrolPoints.length} punto${e.patrolPoints.length!==1?'s':''} de ruta · (${e.x},${e.y})</div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.enemy-card').forEach(card=>{
+      card.addEventListener('click',e=>{
+        if(e.target.dataset.del) return;
+        selectedEnemyId=parseInt(card.dataset.id);
+        draw();
+      });
+    });
+    list.querySelectorAll('.ec-del').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id=parseInt(btn.dataset.del);
+        state.enemies=state.enemies.filter(e=>e.id!==id);
+        if(selectedEnemyId===id) selectedEnemyId=null;
+        draw();
+      });
+    });
+  }
+
+  // Route info
+  const sel=getSelected();
+  const ri=document.getElementById('route-info');
+  const clearBtn=document.getElementById('btn-clear-route');
+  if(sel){
+    const idx=state.enemies.indexOf(sel);
+    const col=getPatrolColor(idx);
+    ri.innerHTML=sel.patrolPoints.length===0
+      ? `<span style="color:var(--color-text-tertiary)">Sin puntos. Usa la herramienta "Ruta" y click en el canvas.</span>`
+      : sel.patrolPoints.map((p,i)=>`<div style="font-size:11px;color:${col};line-height:1.7;">${i+1}. (${p.x}, ${p.y})</div>`).join('');
+    clearBtn.style.display='block';
+  } else {
+    ri.textContent='Seleccioná un enemigo para ver su ruta.';
+    clearBtn.style.display='none';
+  }
+
+  // Counts
+  document.getElementById('counts').innerHTML=
+    `Paredes: ${state.walls.size}<br>Armarios: ${state.cabinets.size}<br>Almas: ${state.souls.length}<br>Enemigos: ${state.enemies.length}<br>Spawn: ${state.playerSpawn?'✓':'—'}`;
+}
+
+document.getElementById('btn-clear-route').addEventListener('click',()=>{
+  const sel=getSelected();
+  if(sel){sel.patrolPoints=[];draw();}
+});
+
+// ── Export ───────────────────────────────────────────────────────────────────
+function buildJSON(){
+  function tileObjs(set){
+    return [...set].map(k=>{const[tx,ty]=k.split(',').map(Number);return{x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,width:TILE,height:TILE};});
+  }
+  return {
+    mapSize:{width:MAP_W,height:MAP_H},
+    playerSpawn:state.playerSpawn??{x:400,y:300},
+    walls:tileObjs(state.walls),
+    cabinets:tileObjs(state.cabinets),
+    souls:state.souls.map(s=>({x:s.x,y:s.y})),
+    enemies:state.enemies.map(e=>({
+      x:e.x,y:e.y,
+      type:e.type,
+      patrolPoints:e.patrolPoints.map(p=>({x:p.x,y:p.y}))
+    })),
+  };
+}
+
+document.getElementById('btn-export').addEventListener('click',()=>{
+  document.getElementById('json-out').value=JSON.stringify(buildJSON(),null,2);
+  document.getElementById('json-panel').classList.add('open');
+});
+document.getElementById('btn-close-json').addEventListener('click',()=>{
+  document.getElementById('json-panel').classList.remove('open');
+});
+document.getElementById('btn-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(document.getElementById('json-out').value).then(()=>{
+    const b=document.getElementById('btn-copy');
+    b.textContent='¡Copiado!';
+    setTimeout(()=>b.textContent='Copiar',1500);
+  });
+});
+document.getElementById('btn-download').addEventListener('click',()=>{
+  const blob=new Blob([document.getElementById('json-out').value],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='level.json';
+  a.click();
+});
+
+resizeCanvas();
+</script>
